@@ -40,14 +40,20 @@ public class AttachToExistingVMProvider implements ExecutionControlProvider {
 
 	@Override
 	public ExecutionControl generate(ExecutionEnv env, Map<String, String> parameters) throws Throwable {
+        System.out.println(parameters);
 		Map<String, String> dp  = defaultParameters();
 		if (parameters == null) {
 			parameters = dp;
 		}
 		String remoteAgent = parameters.getOrDefault(PARAM_REMOTE_AGENT, dp.get(PARAM_REMOTE_AGENT));
+
 		int timeout = Integer.parseUnsignedInt(parameters.getOrDefault(PARAM_TIMEOUT, dp.get(PARAM_TIMEOUT)));
+
 		String host = parameters.getOrDefault(PARAM_HOST_NAME, dp.get(PARAM_HOST_NAME));
+
 		int port = Integer.valueOf(parameters.getOrDefault(PARAM_PORT, dp.get(PARAM_PORT)));
+        System.out.println("port input :" + port);
+
 		return ExistingVMJdi.create(env, remoteAgent, host, port, timeout);
 	}
 }

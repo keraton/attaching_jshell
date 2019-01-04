@@ -14,12 +14,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import jdk.jshell.execution.RemoteExecutionControl;
 
 /**
@@ -44,6 +48,8 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
 	 * @throws Exception any unexpected exception
 	 */
 	public static void main(String args) throws IOException {
+		System.out.println("Call main args " + args);
+
 		String[] split = args.split(":");
 		Socket socket = new Socket(split[0], Integer.parseInt(split[1]));
 		InputStream inStream = socket.getInputStream();
@@ -53,12 +59,16 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
 		outputs.put("err", st -> System.setErr(new PrintStream(st, true)));
 		Map<String, Consumer<InputStream>> input = new HashMap<>();
 		input.put("in", System::setIn);
+
+		// And forward
 		forwardExecutionControlAndIO(new RemoteExecutionControl(), inStream, outStream, outputs, input);
 	}
 
 	public static void main0(String args) {
 		//Call main from a new thread so that main0 invocation can return,
 		//which avoids a deadlock
+		System.out.println("Call main0");
+
 		Thread thread = new Thread(() -> {
 			try {
 				main(args);
@@ -75,11 +85,11 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
 	private void breakpointMethod() {
 		//Intentionally empty; used as a jumping point to establish the JShell connection,
 		//by having the JShell execution engine invoke main0 using JDI when the breakpoint
-		//for this method is hit.
+		//for this method is hit.;
 	}
 
 	private void loopWaitingForJDIAttach() {
-		while(true) {
+		do {
 			try {
 				breakpointMethod();
 				Thread.sleep(500);
@@ -87,35 +97,46 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
 				throw new RuntimeException(e);
 			}
 			breakpointMethod();
-		}
+		} while (true);
 	}
 
-	public static String theGoodsForTesting = "ARE HERE";
+
+
+	public static void theGoodsForTesting() {
+		System.out.println("ARE HERE");
+	}
 
 	public ExistingVMRemoteExecutionControl() {
 		Thread t = new Thread(this::loopWaitingForJDIAttach);
 		t.setName("ExistingVMRemoteExecutionControl");
 		t.start();
 
-		//heartBeat thread for testing purposes
-		Thread heartBeat = new Thread(() -> {
-			while (true) {
-				System.err.println("alive");
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-		});
-		heartBeat.setName("Heartbeat thread");
-		//heartBeat.start();
+		System.out.println("start here!");
 	}
 
 	/**
 	 * For testing purposes.
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 		new ExistingVMRemoteExecutionControl();
+
+		HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
+		server.createContext("/test", new MyHandler());
+		server.setExecutor(null); // creates a default executor
+		server.start();
 	}
+
+    static class MyHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            System.out.println("Called");
+            ExistingVMRemoteExecutionControl.main0("localhost:49796");
+
+            String response = "JDI interface started";
+            t.sendResponseHeaders(200, response.length());
+            OutputStream os = t.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
+        }
+    }
 }

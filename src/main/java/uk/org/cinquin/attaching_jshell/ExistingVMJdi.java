@@ -14,9 +14,10 @@ import java.io.InputStream;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -85,9 +86,6 @@ public class ExistingVMJdi extends JdiExecutionControl {
 		return null;
 	}
 
-	/*public static void main(String [] args) throws Exception {
-		create(null, "", "localhost", 4568, 30_000);
-	}*/
 
 	/**
 	 * Creates an ExecutionControl instance based on a JDI
@@ -107,111 +105,35 @@ public class ExistingVMJdi extends JdiExecutionControl {
 	 */
 	static ExecutionControl create(ExecutionEnv env, String remoteAgent,
 								   String host, int debuggingPort, int millsTimeout) throws IOException {
-		try (final ServerSocket listener = new ServerSocket(0, 1)) {
+		try (final ServerSocket listener = new ServerSocket(49796, 1)) {
 			// timeout on I/O-socket
 			listener.setSoTimeout(millsTimeout);
 			int port = listener.getLocalPort();
 
-			Connector connector = findConnector("com.sun.jdi.SocketAttach");
+			/*Connector connector = findConnector("com.sun.jdi.SocketAttach");
 			AttachingConnector attacher = (AttachingConnector) connector;
 			Map<String, Connector.Argument> args = attacher.defaultArguments();
 			args.get("hostname").setValue(host);
 			args.get("port").setValue(Integer.toString(debuggingPort));
+
 			final VirtualMachine vm;
 			try {
 				vm = attacher.attach(args);
 			} catch (IllegalConnectorArgumentsException e) {
+				e.printStackTrace();
 				throw new RuntimeException(e);
-			}
-			ThreadReference reservedThread = null;
-			for (ThreadReference t: vm.allThreads()) {
-				if (t.name().startsWith("ExistingVMRemoteExecutionControl")) {
-					reservedThread = t;
-					break;
-				}
-			}
+			}*/
 
-			if (reservedThread == null) {
-				throw new IllegalStateException("Remote VM does not have the expected thread");
-			}
+			//System.out.println("port : " + port);
+			//invokeMain0(port, vm);
+			callRemoteJshell();
 
-			List<ReferenceType> classes = vm.classesByName(
-				"uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl");
-			if (classes.isEmpty()) {
-				throw new IllegalStateException(
-					"Remote VM does not have class uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl");
-			}
-			List<Location> breakpointLocations = new ArrayList<>();
-			classes.forEach(c -> c.methodsByName("breakpointMethod").forEach(
-				method -> breakpointLocations.add(method.location())));
-
-			ThreadReference reservedThread0 = reservedThread;
-			breakpointLocations.forEach(loc -> {
-				BreakpointRequest br = vm.eventRequestManager().createBreakpointRequest(loc);
-				br.addThreadFilter(reservedThread0);
-				br.enable();
-			});
-
-			outer:
-			while (true) {
-				try {
-					EventSet es = vm.eventQueue().remove(10_000);
-					if (es == null) {
-						throw new TimeoutException();
-					}
-					EventIterator it = es.eventIterator();
-					while (it.hasNext()) {
-						Event e = it.nextEvent();
-						if (e instanceof BreakpointEvent) {
-							BreakpointEvent bre = (BreakpointEvent) e;
-							if (breakpointLocations.contains(bre.location())) {
-								break outer;
-							}
-							System.err.println("Hit a breakpoint not set by us: " + bre.location());
-						} else {
-							System.err.println("Unknown event: " + e);
-						}
-					}
-				} catch (InterruptedException | TimeoutException e) {
-					throw new RuntimeException("Remote VM did not get to breakpoint after at least 10 s");
-				}
-			}
-
-			ReferenceType classRef = classes.get(0);
-			if (!(classRef instanceof ClassType)) {
-				throw new RuntimeException("Reference " + classRef + " is not a ClassType");
-			}
-
-			StringReference mainArg = vm.mirrorOf(InetAddress.getLocalHost().getHostName() + ":" + port);
-			String baseExceptionMessage = " while invoking ExistingVMRemoteExecutionControl::main0 in remote VM";
-			try {
-				((ClassType) classRef).invokeMethod(reservedThread0, classRef.methodsByName("main0").get(0),
-					Arrays.asList(mainArg), 0);
-			} catch (InvalidTypeException | ClassNotLoadedException | IncompatibleThreadStateException |
-					InvocationException e) {
-				throw new RuntimeException("Exception" + baseExceptionMessage, e);
-			} catch (Exception e) {//e.g. if methodsByName does not find main0
-				throw new RuntimeException(
-					"Unexpected exception" + baseExceptionMessage, e);
-			} finally {
-				vm.eventRequestManager().deleteAllBreakpoints();
-				try {
-					EventSet eventSet;
-					do {
-						eventSet = vm.eventQueue().remove(1);
-					} while (eventSet != null);
-				} catch (InterruptedException e) {
-					throw new RuntimeException(e);
-				}
-				vm.resume();
-			}
-
-			List < Consumer < String >> deathListeners = new ArrayList<>();
+/*			List < Consumer < String >> deathListeners = new ArrayList<>();
 			Util.detectJdiExitEvent(vm, s -> {
 				for (Consumer<String> h : deathListeners) {
 					h.accept(s);
 				}
-			});
+			});*/
 
 			// Set-up the commands/results on the socket.  Piggy-back snippet
 			// output.
@@ -225,7 +147,120 @@ public class ExistingVMJdi extends JdiExecutionControl {
 			input.put("in", env.userIn());
 			return remoteInputOutput(socket.getInputStream(), out, outputs, input,
 				(objIn, objOut) -> new ExistingVMJdi(env,
-					objOut, objIn, vm, remoteAgent, deathListeners));
+					objOut, objIn, null, remoteAgent/*, deathListeners*/));
+		}
+		catch (Exception  e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static void callRemoteJshell() throws IOException, InterruptedException {
+		HttpClient httpClient = HttpClient.newHttpClient();
+
+		HttpResponse<String> httpResponse = httpClient.send(HttpRequest.newBuilder()
+																.uri(URI.create("http://localhost:8000/test"))
+																.GET()
+																.build(),
+															HttpResponse.BodyHandlers.ofString());
+		System.out.println(httpResponse.body());
+	}
+
+	/**
+	 * This will invoke the main0 in order to launch the main to open the socket
+	 * @param port
+	 * @param vm
+	 * @throws UnknownHostException
+	 */
+	private static void invokeMain0(int port, VirtualMachine vm) throws UnknownHostException {
+		ThreadReference reservedThread = null;
+		for (ThreadReference t: vm.allThreads()) {
+			if (t.name().startsWith("ExistingVMRemoteExecutionControl")) {
+				reservedThread = t;
+				break;
+			}
+		}
+
+		if (reservedThread == null) {
+			throw new IllegalStateException("Remote VM does not have the expected thread");
+		}
+
+		List<ReferenceType> classes = vm.classesByName(
+			"uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl");
+		if (classes.isEmpty()) {
+			throw new IllegalStateException(
+				"Remote VM does not have class uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl");
+		}
+		List<Location> breakpointLocations = new ArrayList<>();
+		classes.forEach(c -> c.methodsByName("breakpointMethod").forEach(
+			method -> breakpointLocations.add(method.location())));
+
+		ThreadReference reservedThread0 = reservedThread;
+		breakpointLocations.forEach(loc -> {
+			BreakpointRequest br = vm.eventRequestManager().createBreakpointRequest(loc);
+			br.addThreadFilter(reservedThread0);
+			br.enable();
+		});
+
+		boolean loop = true;
+		int i = 0;
+		while (loop) {
+			System.out.println("count " + i);
+			try {
+				EventSet es = vm.eventQueue().remove(10_000);
+				if (es == null) {
+					throw new TimeoutException();
+				}
+				EventIterator it = es.eventIterator();
+				while (it.hasNext()) {
+					Event e = it.nextEvent();
+					if (e instanceof BreakpointEvent) {
+						BreakpointEvent bre = (BreakpointEvent) e;
+						if (breakpointLocations.contains(bre.location())) {
+							loop = false;
+						}
+						else {
+							System.err.println("Hit a breakpoint not set by us: " + bre.location());
+						}
+
+					} else {
+						System.err.println("Unknown event: " + e);
+					}
+				}
+			} catch (InterruptedException | TimeoutException e) {
+				throw new RuntimeException("Remote VM did not get to breakpoint after at least 10 s");
+			}
+		}
+
+		ReferenceType classRef = classes.get(0);
+		if (!(classRef instanceof ClassType)) {
+			throw new RuntimeException("Reference " + classRef + " is not a ClassType");
+		}
+
+		StringReference mainArg = vm.mirrorOf(InetAddress.getLocalHost().getHostName() + ":" + port);
+		String baseExceptionMessage = " while invoking ExistingVMRemoteExecutionControl::main0 in remote VM";
+		try {
+			((ClassType) classRef).invokeMethod(reservedThread, classRef.methodsByName("main0").get(0),
+				Arrays.asList(mainArg), 0);
+		} catch (InvalidTypeException | ClassNotLoadedException | IncompatibleThreadStateException |
+				InvocationException e) {
+			e.printStackTrace();
+			throw new RuntimeException("Exception" + baseExceptionMessage, e);
+		} catch (Exception e) {//e.g. if methodsByName does not find main0
+			e.printStackTrace();
+			throw new RuntimeException(
+				"Unexpected exception" + baseExceptionMessage, e);
+		} finally {
+			vm.eventRequestManager().deleteAllBreakpoints();
+			try {
+				EventSet eventSet;
+				do {
+					eventSet = vm.eventQueue().remove(1);
+				} while (eventSet != null);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+			vm.resume();
 		}
 	}
 
@@ -237,15 +272,15 @@ public class ExistingVMJdi extends JdiExecutionControl {
 	 */
 	private ExistingVMJdi(ExecutionEnv env,
 									   ObjectOutput cmdout, ObjectInput cmdin,
-									   VirtualMachine vm, String remoteAgent,
-									   List<Consumer<String>> deathListeners) {
+									   VirtualMachine vm, String remoteAgent
+									   /*List<Consumer<String>> deathListeners*/) {
 		super(cmdout, cmdin);
 		this.vm = vm;
 		this.remoteAgent = remoteAgent;
 		// We have now succeeded in establishing the connection.
 		// If there is an exit now it propagates all the way up
 		// and the VM should be disposed of.
-		deathListeners.add(s -> env.closeDown());
+		//deathListeners.add(s -> env.closeDown());
 	}
 
 	@Override
