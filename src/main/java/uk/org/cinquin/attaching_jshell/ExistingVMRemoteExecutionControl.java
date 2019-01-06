@@ -86,4 +86,8 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
             os.close();
         }
     }
+
+    public static void breakPoint() {
+        // Put break point in here !!
+    }
 }

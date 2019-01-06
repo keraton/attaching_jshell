@@ -43,6 +43,7 @@ class CustomJShellTest {
 	@Test
 	void should_run_test () throws InterruptedException {
 	    // Given
+
 		Map<String, String> params = Map.of(PARAM_HOST_NAME, "localhost",
 											PARAM_TIMEOUT, "10000");
 
