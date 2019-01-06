@@ -27,9 +27,9 @@ public class CustomJShellTest {
 		builder.executionEngine(new AttachToExistingVMProvider(), params);
 		JShell shell = builder.build();
 		shell.eval("int k = 3 + 15;").forEach(sne -> System.out.println(sne.toString()));
-		shell.eval("import uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl;").forEach(sne -> System.out.println(sne.toString()));
-		shell.eval("String s = ExistingVMRemoteExecutionControl.theGoodsForTesting;").forEach(sne -> System.out.println(sne.toString()));
-		Thread.sleep(10_000);
+		shell.eval("import uk.org.cinquin.attaching_jshell.VMRemoteTarget;").forEach(sne -> System.out.println(sne.toString()));
+		shell.eval("VMRemoteTarget.theGoodsForTesting();").forEach(sne -> System.out.println(sne.toString()));
+		Thread.sleep(3_000);
 		shell.close();
 	}
 

@@ -5,7 +5,6 @@
 package uk.org.cinquin.attaching_jshell;
 
 import static jdk.jshell.execution.JdiExecutionControlProvider.PARAM_HOST_NAME;
-import static jdk.jshell.execution.JdiExecutionControlProvider.PARAM_REMOTE_AGENT;
 import static jdk.jshell.execution.JdiExecutionControlProvider.PARAM_TIMEOUT;
 
 import java.util.HashMap;
@@ -23,37 +22,45 @@ import jdk.jshell.spi.ExecutionEnv;
  * Created by olivier on 4/29/17.
  */
 public class AttachToExistingVMProvider implements ExecutionControlProvider {
+
+    private final String PARAM_PORT = "port";
+    private final String PARAM_REMOTE_CALLBACK = "remoteCallback";
+    private final String PARAM_REMOTE_URL = "remoteUrl";
+
 	@Override
 	public String name() {
 		return "attachToExistingVM";
 	}
 
-	public String PARAM_PORT = "port";
 
 	public Map<String,String> defaultParameters() {
 		Map<String, String> result = new HashMap<>();
+
+		// Locale parameters
 		result.put(PARAM_HOST_NAME, "localhost");
-		result.put(PARAM_PORT, "4568");
-		result.put(PARAM_TIMEOUT, "30000");
+		result.put(PARAM_PORT, "4242");
+        result.put(PARAM_TIMEOUT, "60000"); // 60s
+
+        // Remote parameters
+        result.put(PARAM_REMOTE_CALLBACK, "true");
+        result.put(PARAM_REMOTE_URL, "http://localhost:8000/startJshell");
+
 		return result;
 	}
 
 	@Override
-	public ExecutionControl generate(ExecutionEnv env, Map<String, String> parameters) throws Throwable {
-        System.out.println(parameters);
+	public ExecutionControl generate(ExecutionEnv env, Map<String, String> parameters)  {
 		Map<String, String> dp  = defaultParameters();
 		if (parameters == null) {
 			parameters = dp;
 		}
-		String remoteAgent = parameters.getOrDefault(PARAM_REMOTE_AGENT, dp.get(PARAM_REMOTE_AGENT));
-
 		int timeout = Integer.parseUnsignedInt(parameters.getOrDefault(PARAM_TIMEOUT, dp.get(PARAM_TIMEOUT)));
+		String hostName = parameters.getOrDefault(PARAM_HOST_NAME, dp.get(PARAM_HOST_NAME));
+		int port = Integer.parseUnsignedInt(parameters.getOrDefault(PARAM_PORT, dp.get(PARAM_PORT)));
 
-		String host = parameters.getOrDefault(PARAM_HOST_NAME, dp.get(PARAM_HOST_NAME));
+        boolean remoteCallback = Boolean.parseBoolean(parameters.getOrDefault(PARAM_REMOTE_CALLBACK, dp.get(PARAM_REMOTE_CALLBACK)));
+        String remoteHostName = parameters.getOrDefault(PARAM_REMOTE_URL, dp.get(PARAM_REMOTE_URL));
 
-		int port = Integer.valueOf(parameters.getOrDefault(PARAM_PORT, dp.get(PARAM_PORT)));
-        System.out.println("port input :" + port);
-
-		return ExistingVMJdi.create(env, remoteAgent, host, port, timeout);
+		return ExistingVMJdi.create(env, timeout, hostName, port, remoteCallback, remoteHostName);
 	}
 }
