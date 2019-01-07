@@ -9,14 +9,13 @@ import static jdk.jshell.execution.JdiExecutionControlProvider.PARAM_HOST_NAME;
 import static jdk.jshell.execution.JdiExecutionControlProvider.PARAM_TIMEOUT;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import jdk.jshell.JShell;
-import jdk.jshell.Snippet;
 import jdk.jshell.SnippetEvent;
 import org.junit.jupiter.api.*;
+import uk.org.cinquin.attaching_jshell.internal.JavaProcess;
 
 /**
  * Test class to programmatically invoke JShell in a way that it attaches to an
@@ -29,7 +28,7 @@ class CustomJShellTest {
 
 	@BeforeEach
  	void init() throws IOException, InterruptedException {
-		process = JavaProcess.exec(ExistingVMRemoteExecutionControl.class);
+		process = JavaProcess.exec(ExistingVMRemoteExecutionControl.class, 4569);
 	}
 
 	@AfterEach

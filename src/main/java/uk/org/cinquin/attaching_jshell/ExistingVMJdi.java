@@ -4,6 +4,7 @@ import com.sun.jdi.VirtualMachine;
 import jdk.jshell.execution.JdiExecutionControl;
 import jdk.jshell.spi.ExecutionControl;
 import jdk.jshell.spi.ExecutionEnv;
+import uk.org.cinquin.attaching_jshell.internal.JavaProcess;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -11,7 +12,6 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,6 +33,10 @@ import static jdk.jshell.execution.Util.remoteInputOutput;
 public class ExistingVMJdi extends JdiExecutionControl {
 
 
+
+	private static Process process = null;
+
+
 	/**
 	 * Creates an ExecutionControl instance based on a JDI
 	 * {@code ListeningConnector} or {@code LaunchingConnector}.
@@ -44,15 +48,34 @@ public class ExistingVMJdi extends JdiExecutionControl {
 	 * @param env the context passed by
 	 * {@brokenlink jdk.jshell.spi.ExecutionControl#start(jdk.jshell.spi.ExecutionEnv) }
 	 * hostname, applies to listening only (!isLaunch)
+	 * @param standAlone
 	 * @return the channel
 	 * @throws IOException if there are errors in set-up
 	 */
-	static ExecutionControl create(ExecutionEnv env, int millsTimeout, String hostName, int port, boolean remoteCallback, String remoteUrl)  {
+	static ExecutionControl create(ExecutionEnv env, int millsTimeout, String hostName, int port, boolean remoteCallback, boolean standAlone, String remoteUrl)  {
 		try (final ServerSocket listener = new ServerSocket(port, 1)) {
 			// timeout on I/O-socket
 			listener.setSoTimeout(millsTimeout);
 
 			if (remoteCallback) {
+				callRemoteJshell(remoteUrl, hostName, port);
+			}
+			else if (standAlone) {
+				// Kill the process if it is exist
+				if (process != null && process.isAlive()) {
+					process.destroy();
+
+					// Wait until process is really dead
+					while (process.isAlive()) {
+						Thread.sleep(10);
+					}
+				}
+				int debugPort = port + 1;
+				process = JavaProcess.exec(ExistingVMRemoteExecutionControl.class, debugPort);
+
+				// Make sure that the server is up for the client 😓
+				Thread.sleep(500);
+
 				callRemoteJshell(remoteUrl, hostName, port);
 			}
 
@@ -65,8 +88,10 @@ public class ExistingVMJdi extends JdiExecutionControl {
 			Map<String, OutputStream> outputs = new HashMap<>();
 			outputs.put("out", env.userOut());
 			outputs.put("err", env.userErr());
+
 			Map<String, InputStream> input = new HashMap<>();
 			input.put("in", env.userIn());
+
 			return remoteInputOutput(socket.getInputStream(), out, outputs, input,
 				(objIn, objOut) -> new ExistingVMJdi(objOut, objIn));
 		}
@@ -80,11 +105,11 @@ public class ExistingVMJdi extends JdiExecutionControl {
 
 		// http://localhost:8000/startJshell?hostname=localhost&port=12345
 		HttpClient httpClient = HttpClient.newHttpClient();
-		HttpResponse<String> httpResponse = httpClient.send(HttpRequest.newBuilder()
-																.uri(URI.create(remoteUrl + "?hostname=" + hostname + "&port=" + port))
-																.GET()
-																.build(),
-																ofString());
+		httpClient.send(HttpRequest.newBuilder()
+								.uri(URI.create(remoteUrl + "?hostname=" + hostname + "&port=" + port))
+								.GET()
+								.build(),
+								ofString());
 	}
 
 
@@ -98,11 +123,13 @@ public class ExistingVMJdi extends JdiExecutionControl {
 		super(cmdout, cmdin);
 	}
 
-
 	@Override
 	public void close() {
+		// Kill the other VM when we shutdown
+		process.destroy();
 		super.close();
 	}
+
 
 	@Override
 	protected synchronized VirtualMachine vm() {

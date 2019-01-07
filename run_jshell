@@ -1,1 +1,5 @@
-java -cp target/attaching_jshell-1.0.0.jar jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(localhost),port(4568)"
+#java -cp target/attaching_jshell-1.0.0.jar jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(localhost),port(4568)"
+#java -cp target/attaching_jshell-1.0.0.jar:/Users/Bowie/IdeaProjects/spring-boot-and-java-10/target/BOOT-INF/classes/:/Users/Bowie/IdeaProjects/spring-boot-and-java-10/target/BOOT-INF/lib/* jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(localhost),port(4568)"
+#java -cp target/attaching_jshell-1.0.0.jar:/Users/Bowie/IdeaProjects/spring-boot-and-java-10/target/BOOT-INF/classes/:/Users/Bowie/IdeaProjects/spring-boot-and-java-10/target/BOOT-INF/lib/* jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(localhost),port(4568),remoteCallback(false)"
+#java -cp target/attaching_jshell-1.0.0.jar  jdk.internal.jshell.tool.JShellToolProvider --execution "attachToExistingVM:hostname(localhost),port(4568),remoteCallback(false)"
+java -cp target/attaching_jshell-1.0.0.jar:target/attaching_jshell-1.0.0-javadoc.jar  jdk.internal.jshell.tool.JShellToolProvider --execution "attachToExistingVM:hostname(localhost),port(4568),remoteCallback(false),remoteStandAlone(true)"

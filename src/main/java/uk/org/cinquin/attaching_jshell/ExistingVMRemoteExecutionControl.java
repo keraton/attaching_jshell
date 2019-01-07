@@ -55,12 +55,15 @@ public class ExistingVMRemoteExecutionControl extends RemoteExecutionControl {
 
 
 	public static void main(String[] args) throws IOException {
+        startServer();
+    }
 
-		HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
-		server.createContext("/startJshell", new JshellCallHandler());
-		server.setExecutor(null); // creates a default executor
-		server.start();
-	}
+    public static void startServer() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
+        server.createContext("/startJshell", new JshellCallHandler());
+        server.setExecutor(null); // creates a default executor
+        server.start();
+    }
 
     static class JshellCallHandler implements HttpHandler {
 

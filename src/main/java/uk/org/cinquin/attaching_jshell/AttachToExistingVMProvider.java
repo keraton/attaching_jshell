@@ -26,6 +26,7 @@ public class AttachToExistingVMProvider implements ExecutionControlProvider {
     private final String PARAM_PORT = "port";
     private final String PARAM_REMOTE_CALLBACK = "remoteCallback";
     private final String PARAM_REMOTE_URL = "remoteUrl";
+    private final String PARAM_REMOTE_STAND_ALONE = "remoteStandAlone";
 
 	@Override
 	public String name() {
@@ -43,6 +44,7 @@ public class AttachToExistingVMProvider implements ExecutionControlProvider {
 
         // Remote parameters
         result.put(PARAM_REMOTE_CALLBACK, "true");
+        result.put(PARAM_REMOTE_STAND_ALONE, "false");
         result.put(PARAM_REMOTE_URL, "http://localhost:8000/startJshell");
 
 		return result;
@@ -59,8 +61,9 @@ public class AttachToExistingVMProvider implements ExecutionControlProvider {
 		int port = Integer.parseUnsignedInt(parameters.getOrDefault(PARAM_PORT, dp.get(PARAM_PORT)));
 
         boolean remoteCallback = Boolean.parseBoolean(parameters.getOrDefault(PARAM_REMOTE_CALLBACK, dp.get(PARAM_REMOTE_CALLBACK)));
+        boolean standAlone = Boolean.parseBoolean(parameters.getOrDefault(PARAM_REMOTE_STAND_ALONE, dp.get(PARAM_REMOTE_STAND_ALONE)));
         String remoteHostName = parameters.getOrDefault(PARAM_REMOTE_URL, dp.get(PARAM_REMOTE_URL));
 
-		return ExistingVMJdi.create(env, timeout, hostName, port, remoteCallback, remoteHostName);
+		return ExistingVMJdi.create(env, timeout, hostName, port, remoteCallback, standAlone, remoteHostName);
 	}
 }
