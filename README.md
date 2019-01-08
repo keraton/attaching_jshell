@@ -16,15 +16,11 @@ This project provides a JShell execution engine that can attach to any already-r
 JVM, as long as that JVM has been started appropriately.
 
 ## Example usage
-- Start the target JVM with
-`-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=XXXhostname:XXXport`
-(update `XXXhostname` and `XXXport` as appropriate) and call
-`new uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl()` from that JVM
-prior to using JShell
-
 - call JShell as follows:
-`java -cp lib/attaching_jshell.jar jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(XXXhostname),port(XXXport)"`
-using the same values of `XXXhostname` and `XXXport` as above
+`java -cp lib/attaching_jshell.jar jdk.internal.jshell.tool.JShellToolProvider  --execution "attachToExistingVM:hostname(XXXhostname),port(XXXport)"` it will wait until 60 seconds to be called.
+- Start the target JVM with and call
+`new uk.org.cinquin.attaching_jshell.startJshell(host, port)` from that JVM
+prior to using JShell using the same values of `XXXhostname` and `XXXport` as above
 
 A simple way of making objects accessible to JShell is to have static fields point at
 them (see example in `ExistingVMRemoteExecutionControl` class).
@@ -33,8 +29,10 @@ The example commands above are provided in the test scripts `run_test_target` (t
 executed first) and `run_jshell`. From the JShell instance, run for example
 ```
  import uk.org.cinquin.attaching_jshell.ExistingVMRemoteExecutionControl;
- String s = ExistingVMRemoteExecutionControl.theGoodsForTesting
+ String s = ExistingVMRemoteExecutionControl.breakPoint()
 ```
+
+To debug the target JVM, one can run it with jdwp option `-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=localhost:4568`, then with an IDE we can get do a remote debugging
 
 ## Implementation notes
 The need to use the `ExistingVMRemoteExecutionControl` class from the target JVM stems
@@ -42,16 +40,10 @@ from limitations in the Java Debug Interface (JDI). An alternative would be to u
 JVM Tool Interface, which would require compiling platform-specific native binaries, or
 to use JDI in a more hackish way to get the JShell connection established.
 
-## Note on security
-Make sure that the debugging port created with the `-agentlib:jdwp` option shown above is
-not publicly exposed, as it can be exploited rather trivially for arbitrary code execution.
 
 ## Limitations
 
-- Only one JShell instance can be connected to a target VM at any given time. This limitation
-could probably be lifted with some work.
 - The standard error stream of the target JVM is captured by JShell and is currently not
 restored when JShell exits.
 - The versions of JShell on the target JVM and the one running JShell probably need to
-match. Note that this project has been tested with Oracle JDK early access build 161,
-which hopefully will be close to the final release of JDK 9.
+match.
